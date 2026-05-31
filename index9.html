@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <title>Hopper Quest - Elite Edition</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #e0f2fe, #dcfce7);
+            --panel-bg: rgba(255, 255, 255, 0.98);
+            --text-dark: #1e293b;
+            --text-light: #64748b;
+            --primary: #ff6097;
+            --accent: #ffb300;
+            --radius-lg: 24px;
+            --radius-md: 16px;
+            --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            --shadow-lg: 0 20px 35px -5px rgba(15, 23, 42, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            /* FIX: Completely remove blue tap highlight overlay on mobile devices */
+            -webkit-tap-highlight-color: transparent;
+            outline: none;
+        }
+
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-dark);
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100dvh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: none;
+        }
+
+        .bg-blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(50px);
+            z-index: -1;
+            animation: gentleFloat 8s ease-in-out infinite alternate;
+        }
+        .blob-1 { width: 280px; height: 280px; background: rgba(74, 222, 128, 0.18); top: -40px; left: -40px; }
+        .blob-2 { width: 260px; height: 260px; background: rgba(255, 96, 151, 0.14); bottom: -40px; right: -40px; animation-delay: -3s; }
+
+        @keyframes gentleFloat {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(20px, 20px) scale(1.08); }
+        }
+
+        .viewport-wrapper {
+            width: 100dvw;
+            height: 100dvh;
+            max-width: 440px;
+            max-height: 820px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            position: relative;
+        }
+
+        /* Top HUD Panel */
+        .game-header {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            align-items: center;
+            background: var(--panel-bg);
+            padding: 12px 16px;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            border: 3px solid #ffffff;
+            z-index: 10;
+        }
+
+        /* Adjustments: Keep layouts aligned but hide internal context elements smoothly during screen switches */
+        .game-header.menu-active .hearts-container,
+        .game-header.menu-active .header-game-title {
+            visibility: hidden;
+            opacity: 0;
+        }
+
+        /* Adjustment: Force hearts icon block strictly to the left side of the header bar */
+        .hearts-container {
+            display: flex;
+            gap: 4px;
+            font-size: 1.4rem;
+            align-items: center;
+            justify-content: flex-start;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+        }
+
+        /* Adjustment: Center game title text inside top bar configured with a bright green casual look */
+        .header-game-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #22c55e;
+            text-align: center;
+            text-shadow: 1px 1px 0px #ffffff;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+        }
+
+        /* Mute button locked to the right side */
+        .mute-btn-wrapper {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .mute-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #f1f5f9;
+            border: 2px solid #ffffff;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .mute-btn svg { width: 20px; height: 20px; fill: var(--text-dark); }
+
+        /* Arena Canvas Wrapper Card */
+        .canvas-container {
+            flex: 1;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 8px 0;
+            position: relative;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            border: 5px solid #ffffff;
+            overflow: hidden;
+        }
+
+        #gameCanvas {
+            background: #ffffff;
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        /* Absolute Full Screen Container Screen Overlays */
+        .screen-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+            text-align: center;
+            z-index: 20;
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+        }
+
+        .screen-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        /* Adjustment: Transparent, background-free crisp green cartoon starting badge icon card wrapper */
+        .menu-hero-badge {
+            width: 100px;
+            height: 100px;
+            background: transparent;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 4.5rem;
+            margin-bottom: 12px;
+            position: relative;
+            animation: cartoonBounce 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes cartoonBounce {
+            0% { transform: translateY(0) scale(1) rotate(-4deg); }
+            100% { transform: translateY(-10px) scale(1.04) rotate(4deg); }
+        }
+
+        .game-title {
+            font-size: 2.8rem;
+            font-weight: 700;
+            color: #22c55e;
+            line-height: 1.1;
+            margin-bottom: 12px;
+            text-shadow: 3px 3px 0px #ffffff, 5px 5px 0px rgba(34, 197, 94, 0.15);
+        }
+        .game-title.gameover {
+            color: #ef4444;
+            text-shadow: 3px 3px 0px #ffffff, 5px 5px 0px rgba(239, 68, 68, 0.15);
+        }
+
+        .game-instruction-card {
+            background: #f8fafc;
+            border: 2px dashed #e2e8f0;
+            padding: 14px 18px;
+            border-radius: var(--radius-md);
+            width: 100%;
+            max-width: 290px;
+            margin-bottom: 36px;
+            font-size: 0.9rem;
+            color: var(--text-light);
+            font-weight: 500;
+            line-height: 1.4;
+        }
+
+        .btn-action {
+            padding: 14px 44px;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #ffffff;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            border: none;
+            border-radius: var(--radius-md);
+            box-shadow: 0 6px 0px #15803d, var(--shadow-sm);
+            cursor: pointer;
+            font-family: 'Fredoka', sans-serif;
+            transform: translateY(-4px);
+            transition: transform 0.1s;
+        }
+        .btn-action:active {
+            transform: translateY(2px);
+            box-shadow: 0 0px 0px #15803d;
+        }
+
+        .btn-action.restart {
+            background: linear-gradient(135deg, var(--primary), #e11d48);
+            box-shadow: 0 6px 0px #9f1239, var(--shadow-sm);
+        }
+        .btn-action.restart:active {
+            transform: translateY(2px);
+            box-shadow: 0 0px 0px #9f1239;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
+
+    <div class="viewport-wrapper">
+        <header class="game-header menu-active" id="gameHeader">
+            <div class="hearts-container" id="uiHearts">❤️❤️❤️</div>
+            <div class="header-game-title" id="uiTitleText">Hopper Quest</div>
+            <div class="mute-btn-wrapper">
+                <button class="mute-btn" id="uiMute">
+                    <svg id="muteIcon" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <main class="canvas-container">
+            <canvas id="gameCanvas" width="400" height="520"></canvas>
+
+            <div class="screen-overlay" id="startScreen">
+                <div class="menu-hero-badge">🐸</div>
+                <h1 class="game-title">Hopper Quest</h1>
+                <div class="game-instruction-card">
+                    Swipe fast to hop upwards! Cross the tracks and land on the top green safety row to win instantly!
+                </div>
+                <button class="btn-action" id="startBtn">PLAY GAME</button>
+            </div>
+
+            <div class="screen-overlay hidden" id="endScreen">
+                <div class="menu-hero-badge" id="endIcon">👑</div>
+                <h2 class="game-title" id="endTitle">Victory!</h2>
+                <div class="game-instruction-card" id="endSubtitle" style="margin-bottom: 36px;">You completed the match perfectly!</div>
+                <button class="btn-action restart" id="restartBtn">PLAY AGAIN</button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const AudioEngine = {
+            ctx: null,
+            isMuted: localStorage.getItem('hopper_muted') === 'true',
+            init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
+            toggleMute() { this.isMuted = !this.isMuted; localStorage.setItem('hopper_muted', this.isMuted); return this.isMuted; },
+            play(freq, type, duration, vol) {
+                if (this.isMuted) return; this.init();
+                try {
+                    const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+                    osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(); osc.stop(this.ctx.currentTime + duration);
+                } catch(e){}
+            },
+            hop() { this.play(440, 'triangle', 0.06, 0.15); },
+            hit() { this.play(130, 'sawtooth', 0.25, 0.25); },
+            win() { 
+                this.play(523, 'sine', 0.12, 0.2); 
+                setTimeout(() => this.play(659, 'sine', 0.12, 0.2), 80); 
+                setTimeout(() => this.play(784, 'sine', 0.12, 0.2), 160);
+                setTimeout(() => this.play(1046, 'sine', 0.35, 0.25), 240);
+            }
+        };
+
+        const V_WIDTH = 400, V_HEIGHT = 520, GRID_SIZE = 40;
+
+        const GameState = {
+            player: { x: 5, y: 12, targetX: 5, targetY: 12, animProgress: 1, inputQueue: null },
+            lanes: [], lives: 3, isPaused: true, lastTime: 0, isGameWon: false,
+            confetti: []
+        };
+
+        const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d');
+        const gameHeader = document.getElementById('gameHeader');
+        const startScreen = document.getElementById('startScreen'); const endScreen = document.getElementById('endScreen');
+        const uiHearts = document.getElementById('uiHearts'); const muteIcon = document.getElementById('muteIcon');
+
+        function updateMuteIcon() {
+            muteIcon.innerHTML = AudioEngine.isMuted 
+                ? `<path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.21.05-.42.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>`
+                : `<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>`;
+        }
+        updateMuteIcon();
+
+        function generateLaneData() {
+            GameState.lanes = [];
+            GameState.lanes[5] = { type: 'road', speed: -1.3, obstacles: [{x: 1}, {x: 5}, {x: 9}], color: '#f87171', width: 52 };
+            GameState.lanes[6] = { type: 'road', speed: 0.9, obstacles: [{x: 0}, {x: 4}, {x: 8}], color: '#fbbf24', width: 72 };
+            GameState.lanes[7] = { type: 'road', speed: -1.1, obstacles: [{x: 2}, {x: 6}], color: '#60a5fa', width: 55 };
+            GameState.lanes[8] = { type: 'road', speed: 0.8, obstacles: [{x: 1}, {x: 5}], color: '#a78bfa', width: 62 };
+            
+            GameState.lanes[1] = { type: 'water', speed: 0.9, obstacles: [{x: 0}, {x: 4}, {x: 8}], color: '#b45309', width: 85 };
+            GameState.lanes[2] = { type: 'water', speed: -1.2, obstacles: [{x: 1}, {x: 5}, {x: 9}], color: '#34d399', width: 45 };
+            GameState.lanes[3] = { type: 'water', speed: 0.8, obstacles: [{x: 2}, {x: 7}], color: '#b45309', width: 100 };
+        }
+
+        function resetPlayerPosition() {
+            GameState.player.x = 5; GameState.player.y = 12;
+            GameState.player.targetX = 5; GameState.player.targetY = 12;
+            GameState.player.animProgress = 1; GameState.player.inputQueue = null;
+        }
+
+        function initCelebrationParticles() {
+            GameState.confetti = [];
+            const colors = ['#ff6097', '#ffb300', '#4ade80', '#60a5fa', '#a78bfa', '#f43f5e'];
+            for (let i = 0; i < 90; i++) {
+                GameState.confetti.push({
+                    x: Math.random() * V_WIDTH,
+                    y: Math.random() * -V_HEIGHT,
+                    r: 4 + Math.random() * 5,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    speedY: 2.2 + Math.random() * 2.5,
+                    wobble: Math.random() * Math.PI,
+                    wobbleSpeed: 0.04 + Math.random() * 0.04
+                });
+            }
+        }
+
+        function runSimulationTick(dt) {
+            const modifier = dt / 16.666;
+
+            for (let y in GameState.lanes) {
+                const lane = GameState.lanes[y];
+                const displacement = lane.speed * modifier;
+                lane.obstacles.forEach(obs => {
+                    obs.x += displacement / GRID_SIZE;
+                    if (lane.speed > 0 && obs.x > (V_WIDTH / GRID_SIZE) + 1) {
+                        obs.x = - (lane.width / GRID_SIZE);
+                    } else if (lane.speed < 0 && obs.x < - (lane.width / GRID_SIZE)) {
+                        obs.x = (V_WIDTH / GRID_SIZE) + 1;
+                    }
+                });
+            }
+
+            if (GameState.isGameWon) {
+                GameState.confetti.forEach(p => {
+                    p.y += p.speedY * modifier;
+                    p.wobble += p.wobbleSpeed * modifier;
+                    p.x += Math.sin(p.wobble) * 0.5;
+                    if (p.y > V_HEIGHT) p.y = -20;
+                });
+            }
+
+            if (GameState.isPaused) return;
+
+            if (GameState.player.animProgress < 1) {
+                GameState.player.animProgress += 0.25 * modifier; 
+                if (GameState.player.animProgress >= 1) {
+                    GameState.player.animProgress = 1;
+                    GameState.player.x = GameState.player.targetX;
+                    GameState.player.y = GameState.player.targetY;
+                    
+                    // TARGET CLEAR WIN BOUNDARY CHECK
+                    if (GameState.player.y === 0) {
+                        AudioEngine.win();
+                        GameState.isPaused = true;
+                        GameState.isGameWon = true;
+                        gameHeader.classList.add('menu-active');
+                        
+                        initCelebrationParticles();
+                        document.getElementById('endIcon').innerText = "👑";
+                        document.getElementById('endTitle').innerText = "Victory!";
+                        document.getElementById('endSubtitle').innerText = "Quest Accomplished! You completed the game successfully! 🎉";
+                        endScreen.classList.remove('hidden');
+                        return;
+                    }
+
+                    if (GameState.player.inputQueue) {
+                        const q = GameState.player.inputQueue;
+                        GameState.player.inputQueue = null;
+                        triggerPlayerMove(q.dx, q.dy);
+                    }
+                }
+            }
+
+            let pX = lerp(GameState.player.x, GameState.player.targetX, GameState.player.animProgress);
+            let pY = lerp(GameState.player.y, GameState.player.targetY, GameState.player.animProgress);
+            let currentYRound = Math.round(pY);
+
+            const activeLane = GameState.lanes[currentYRound];
+            if (activeLane) {
+                const pXReal = pX * GRID_SIZE;
+                const pYReal = pY * GRID_SIZE;
+
+                if (activeLane.type === 'water') {
+                    let onLog = false;
+                    const centerPointX = pXReal + (GRID_SIZE / 2);
+
+                    for (let obs of activeLane.obstacles) {
+                        const logX = obs.x * GRID_SIZE;
+                        if (centerPointX >= logX && centerPointX <= logX + activeLane.width) {
+                            onLog = true;
+                            const drift = (activeLane.speed * modifier) / GRID_SIZE;
+                            GameState.player.x += drift;
+                            GameState.player.targetX += drift;
+                            break;
+                        }
+                    }
+                    if (pX < -0.4 || pX > (V_WIDTH / GRID_SIZE) - 0.6) return handlePlayerDied(true);
+                    if (!onLog && GameState.player.animProgress === 1) return handlePlayerDied(false);
+
+                } else if (activeLane.type === 'road') {
+                    const padX = 7; const padY = 5;
+                    const fLeft = pXReal + padX; const fRight = pXReal + GRID_SIZE - padX;
+                    const fTop = pYReal + padY; const fBottom = pYReal + GRID_SIZE - padY;
+
+                    for (let obs of activeLane.obstacles) {
+                        const carLeft = obs.x * GRID_SIZE + padX;
+                        const carRight = obs.x * GRID_SIZE + activeLane.width - padX;
+                        const carTop = currentYRound * GRID_SIZE + padY;
+                        const carBottom = currentYRound * GRID_SIZE + GRID_SIZE - padY;
+
+                        if (fLeft < carRight && fRight > carLeft && fTop < carBottom && fBottom > carTop) {
+                            return handlePlayerDied(true);
+                        }
+                    }
+                }
+            }
+        }
+
+        function handlePlayerDied(wasImpact) {
+            AudioEngine.hit();
+            GameState.lives--;
+            let h = ""; for(let i=0; i<3; i++) h += i < GameState.lives ? "❤️" : "🖤";
+            uiHearts.innerText = h;
+
+            if (GameState.lives <= 0) {
+                GameState.isPaused = true;
+                GameState.isGameWon = false;
+                gameHeader.classList.add('menu-active');
+
+                document.getElementById('endIcon').innerText = "💀";
+                document.getElementById('endTitle').innerText = "Game Over";
+                document.getElementById('endSubtitle').innerText = wasImpact ? "A vehicle caught you!" : "Splash! You slipped into the river!";
+                endScreen.classList.remove('hidden');
+            } else {
+                resetPlayerPosition();
+            }
+        }
+
+        function renderScene() {
+            ctx.clearRect(0, 0, V_WIDTH, V_HEIGHT);
+            
+            // Draw Map Base Strips
+            for (let r = 0; r < 13; r++) {
+                const y = r * GRID_SIZE;
+                if (r === 0) {
+                    ctx.fillStyle = '#10b981'; ctx.fillRect(0, y, V_WIDTH, GRID_SIZE);
+                    ctx.fillStyle = '#047857'; for(let k=20; k<V_WIDTH; k+=80) ctx.fillRect(k, y+28, 40, 4);
+                } else if (r >= 1 && r <= 3) {
+                    ctx.fillStyle = '#bae6fd'; ctx.fillRect(0, y, V_WIDTH, GRID_SIZE);
+                } else if (r === 4 || r === 9) {
+                    ctx.fillStyle = '#e2e8f0'; ctx.fillRect(0, y, V_WIDTH, GRID_SIZE);
+                    ctx.fillStyle = '#cbd5e1'; for(let m=0; m<V_WIDTH; m+=30) ctx.fillRect(m, y, 2, GRID_SIZE);
+                } else if (r >= 5 && r <= 8) {
+                    ctx.fillStyle = '#475569'; ctx.fillRect(0, y, V_WIDTH, GRID_SIZE);
+                    if (r < 8) {
+                        ctx.fillStyle = '#94a3b8'; for (let s = 10; s < V_WIDTH; s += 30) ctx.fillRect(s, y + GRID_SIZE - 1, 15, 2);
+                    }
+                } else {
+                    ctx.fillStyle = '#86efac'; ctx.fillRect(0, y, V_WIDTH, GRID_SIZE);
+                }
+            }
+
+            // Draw Obstacles
+            for (let y in GameState.lanes) {
+                const lane = GameState.lanes[y];
+                const yReal = y * GRID_SIZE;
+                lane.obstacles.forEach(obs => {
+                    const xReal = obs.x * GRID_SIZE;
+                    ctx.fillStyle = lane.color;
+                    if (lane.type === 'water') {
+                        if (lane.width < 50) {
+                            ctx.fillStyle = '#10b981'; ctx.beginPath(); ctx.arc(xReal + lane.width/2, yReal + GRID_SIZE/2, lane.width/2 - 2, 0, Math.PI * 2); ctx.fill();
+                        } else {
+                            drawRoundedRect(ctx, xReal, yReal + 4, lane.width, GRID_SIZE - 8, 8); ctx.fill();
+                        }
+                    } else {
+                        drawRoundedRect(ctx, xReal + 2, yReal + 4, lane.width - 4, GRID_SIZE - 8, 8); ctx.fill();
+                        ctx.fillStyle = '#ffffff';
+                        if (lane.speed > 0) ctx.fillRect(xReal + lane.width - 14, yReal + 8, 5, GRID_SIZE - 16);
+                        else ctx.fillRect(xReal + 8, yReal + 8, 5, GRID_SIZE - 16);
+                    }
+                });
+            }
+
+            // Draw Character Frog Model
+            if (!GameState.isPaused || (startScreen.classList.contains('hidden') && endScreen.classList.contains('hidden'))) {
+                let rX = lerp(GameState.player.x, GameState.player.targetX, GameState.player.animProgress) * GRID_SIZE;
+                let rY = lerp(GameState.player.y, GameState.player.targetY, GameState.player.animProgress) * GRID_SIZE;
+                let jump = (GameState.player.animProgress < 1) ? Math.sin(GameState.player.animProgress * Math.PI) * 8 : 0;
+
+                ctx.save(); ctx.fillStyle = '#4ade80';
+                ctx.beginPath(); ctx.arc(rX + GRID_SIZE/2, rY + GRID_SIZE/2 - jump, 14, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#ffffff'; ctx.beginPath();
+                ctx.arc(rX + GRID_SIZE/2 - 5, rY + GRID_SIZE/2 - 6 - jump, 4, 0, Math.PI * 2);
+                ctx.arc(rX + GRID_SIZE/2 + 5, rY + GRID_SIZE/2 - 6 - jump, 4, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#000000'; ctx.beginPath();
+                ctx.arc(rX + GRID_SIZE/2 - 5, rY + GRID_SIZE/2 - 7 - jump, 1.8, 0, Math.PI * 2);
+                ctx.arc(rX + GRID_SIZE/2 + 5, rY + GRID_SIZE/2 - 7 - jump, 1.8, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+            }
+
+            // Draw Confetti celebration particles
+            if (!endScreen.classList.contains('hidden') && GameState.isGameWon) {
+                GameState.confetti.forEach(p => {
+                    ctx.fillStyle = p.color;
+                    ctx.save(); ctx.globalAlpha = 0.95;
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+                    ctx.restore();
+                });
+            }
+        }
+
+        function lerp(s, e, a) { return (1 - a) * s + a * e; }
+        function drawRoundedRect(c, x, y, w, h, r) {
+            c.beginPath(); c.moveTo(x + r, y); c.lineTo(x + w - r, y); c.quadraticCurveTo(x + w, y, x + w, y + r);
+            c.lineTo(x + w, y + h - r); c.quadraticCurveTo(x + w, y + h, x + w - r, y + h); c.lineTo(x + r, y + h);
+            c.quadraticCurveTo(x, y + h, x, y + h - r); c.lineTo(x, y + r); c.quadraticCurveTo(x, y, x + r, y); c.closePath();
+        }
+
+        function triggerPlayerMove(dx, dy) {
+            if (GameState.isPaused) return;
+            
+            if (GameState.player.animProgress < 1) {
+                GameState.player.inputQueue = { dx, dy };
+                return;
+            }
+
+            const nX = GameState.player.x + dx; const nY = GameState.player.y + dy;
+            if (nX < 0 || nX >= 10 || nY < 0 || nY >= 13) return;
+
+            AudioEngine.hop();
+            GameState.player.targetX = nX; GameState.player.targetY = nY;
+            GameState.player.animProgress = 0;
+        }
+
+        window.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'ArrowUp': case 'w': case 'W': triggerPlayerMove(0, -1); break;
+                case 'ArrowDown': case 's': case 'S': triggerPlayerMove(0, 1); break;
+                case 'ArrowLeft': case 'a': case 'A': triggerPlayerMove(-1, 0); break;
+                case 'ArrowRight': case 'd': case 'D': triggerPlayerMove(1, 0); break;
+            }
+        });
+
+        // Fast Touch Support System Optimization
+        let tX = 0, tY = 0;
+        window.addEventListener('touchstart', (e) => {
+            tX = e.touches[0].clientX; tY = e.touches[0].clientY;
+        }, { passive: true });
+
+        window.addEventListener('touchend', (e) => {
+            if (GameState.isPaused) return;
+            const dX = e.changedTouches[0].clientX - tX; const dY = e.changedTouches[0].clientY - tY;
+            const thresh = 22; // Shrunken minimal sweep threshold boundary for rapid, snappy movements
+            if (Math.max(Math.abs(dX), Math.abs(dY)) < thresh) return;
+
+            if (Math.abs(dX) > Math.abs(dY)) triggerPlayerMove(dX > 0 ? 1 : -1, 0);
+            else triggerPlayerMove(0, dY > 0 ? 1 : -1);
+        }, { passive: true });
+
+        function setupGameReset() {
+            startScreen.classList.add('hidden');
+            endScreen.classList.add('hidden');
+            gameHeader.classList.remove('menu-active');
+            GameState.isPaused = false;
+            GameState.isGameWon = false;
+            GameState.lives = 3;
+            uiHearts.innerText = "❤️❤️❤️";
+            generateLaneData();
+            resetPlayerPosition();
+        }
+
+        document.getElementById('startBtn').addEventListener('click', () => { AudioEngine.hop(); setupGameReset(); });
+        document.getElementById('restartBtn').addEventListener('click', () => { AudioEngine.hop(); setupGameReset(); });
+        document.getElementById('uiMute').addEventListener('click', () => { AudioEngine.toggleMute(); updateMuteIcon(); });
+
+        function loop(ts) {
+            const dt = ts - GameState.lastTime; GameState.lastTime = ts;
+            runSimulationTick(dt); renderScene();
+            requestAnimationFrame(loop);
+        }
+        generateLaneData(); requestAnimationFrame(loop);
+    </script>
+</body>
+</html>
